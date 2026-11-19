@@ -183,6 +183,53 @@
       }
     }
 
+  
+    @media (max-width: 640px) {
+      /*
+       * Mobile: let the DOCUMENT scroll, not the nested slide panel.
+       * This avoids the common Android browser issue where a flex child
+       * with overflow-y:auto cannot be swiped reliably.
+       */
+      html {
+        height: auto !important;
+        min-height: 100%;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+      body {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 100vh !important;
+        min-height: 100dvh !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
+      }
+      #slide-stage {
+        display: block !important;
+        flex: none !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 100vh;
+        min-height: 100dvh;
+        overflow: visible !important;
+        padding: 82px 18px 112px !important;
+        overscroll-behavior: auto;
+        touch-action: pan-y;
+      }
+      #slide-container {
+        width: 100%;
+        max-width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      #slide-nav-bar {
+        touch-action: manipulation;
+      }
+    }
+
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 h-screen w-screen overflow-hidden flex flex-col select-none">

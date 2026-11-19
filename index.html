@@ -256,7 +256,7 @@
       empty.style.display = filtered.length ? "none" : "block";
 
       grid.innerHTML = filtered.map(item => `
-        <a class="card" href="${escapeHTML(item.file)}" target="_blank" rel="noopener noreferrer"
+        <a class="card" href="${escapeHTML(item.file)}"
            style="--accent:${escapeHTML(item.warna || "#67e8f9")};--glow:${escapeHTML(item.warna || "#67e8f9")}18">
           <div class="card-top">
             <span class="week">${escapeHTML(item.pertemuan)}</span>
