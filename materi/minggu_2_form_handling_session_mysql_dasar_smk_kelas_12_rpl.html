@@ -1,0 +1,1103 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>
+      Pertemuan 2: Form Handling, Session, &amp; MySQL Dasar — SMK Kelas 12 RPL
+    </title>
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      html,
+      body {
+        height: 100%;
+        width: 100%;
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        font-family:
+          "Inter",
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      code,
+      pre,
+      .font-mono {
+        font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+      }
+      .slide-enter {
+        animation: slideIn 0.22s ease-out;
+      }
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateX(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateX(0);
+        }
+      }
+    </style>
+  </head>
+  <body
+    class="bg-slate-950 text-slate-100 h-screen w-screen overflow-hidden flex flex-col select-none"
+  >
+    <!-- Thin Top Progress Line -->
+    <div class="w-full h-1 bg-slate-900 shrink-0">
+      <div
+        id="progress-bar"
+        class="h-full bg-gradient-to-r from-cyan-400 via-indigo-500 to-emerald-400 transition-all duration-300"
+        style="width: 6.25%"
+      ></div>
+    </div>
+
+    <!-- Full-Screen Edge-to-Edge Slide Canvas -->
+    <main
+      id="slide-stage"
+      class="flex-1 w-full overflow-y-auto px-6 sm:px-14 lg:px-24 py-8 sm:py-12 flex flex-col justify-center"
+    >
+      <div
+        id="slide-container"
+        class="w-full max-w-6xl mx-auto slide-enter select-text"
+      >
+        <!-- Slide content rendered here -->
+      </div>
+    </main>
+
+    <!-- Minimal Floating PowerPoint-style Bottom Bar -->
+    <div
+      class="w-full px-6 sm:px-14 lg:px-24 py-3 flex items-center justify-between text-xs text-slate-400 shrink-0 bg-slate-950/80 backdrop-blur-sm"
+    >
+      <div class="flex items-center gap-2 truncate">
+        <span class="font-semibold text-cyan-400"
+          >Pertemuan 2 • Form, Session &amp; MySQL</span
+        >
+        <span class="hidden sm:inline text-slate-600">|</span>
+        <span
+          id="footer-slide-title"
+          class="hidden sm:inline truncate text-slate-400"
+          >Sampul</span
+        >
+      </div>
+
+      <div
+        class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 rounded-full px-2 py-1 shadow-lg"
+      >
+        <button
+          id="btn-prev"
+          type="button"
+          title="Slide Sebelumnya (Panah Kiri)"
+          class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-800 text-slate-200 disabled:opacity-30 disabled:pointer-events-none transition"
+        >
+          ←
+        </button>
+
+        <select
+          id="slide-selector"
+          aria-label="Pilih Slide"
+          class="bg-transparent text-xs font-mono text-slate-200 px-2 py-1 focus:outline-none cursor-pointer max-w-[110px] sm:max-w-[170px]"
+        ></select>
+
+        <span id="slide-counter" class="text-xs font-mono text-slate-400 px-1.5"
+          >1 / 16</span
+        >
+
+        <button
+          id="btn-next"
+          type="button"
+          title="Slide Selanjutnya (Panah Kanan)"
+          class="w-8 h-8 rounded-full flex items-center justify-center bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-30 disabled:pointer-events-none transition"
+        >
+          →
+        </button>
+
+        <button
+          id="btn-fullscreen"
+          type="button"
+          title="Mode Layar Penuh (F)"
+          class="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-800 text-slate-300 transition ml-0.5"
+        >
+          ⛶
+        </button>
+      </div>
+    </div>
+
+    <script>
+      (function () {
+        let currentSlide = 0;
+
+        // Interactive States
+        let formMethod = "GET";
+        let formInputNama = "Raka Pratama";
+        let formInputNilai = "88";
+        let sessionLoggedIn = false;
+        let sessionUser = "admin_rpl";
+        let sqlFilter = "all"; // 'all' | 'selesai' | 'belum'
+        let todoRows = [
+          { id: 1, tugas: "Install Laragon & VS Code", status: "Selesai" },
+          { id: 2, tugas: "Buat Database ukk_latihan", status: "Selesai" },
+          { id: 3, tugas: "Latihan CRUD PHP & MySQL", status: "Belum" },
+        ];
+        let nextTodoId = 4;
+        let lastSqlQuery = "SELECT * FROM catatan;";
+        let quizAnswers = {};
+
+        const quizQuestions = [
+          {
+            q: "1. Kapan sebaiknya kita menggunakan method POST pada form HTML?",
+            options: [
+              "Saat membuat form pencarian (search) agar URL bisa di-bookmark",
+              "Saat mengirim data sensitif seperti password login atau menyimpan data ke database",
+              "Saat membuat link navigasi biasa",
+              "Saat hanya ingin menampilkan data di URL browser",
+            ],
+            correct: 1,
+            explain:
+              "POST mengirim data di dalam body HTTP Request sehingga tidak terlihat di URL dan mendukung pengiriman data besar atau sensitif.",
+          },
+          {
+            q: "2. Fungsi PHP apa yang wajib dipanggil di baris paling atas sebelum menggunakan $_SESSION?",
+            options: [
+              "session_begin();",
+              "start_login();",
+              "session_start();",
+              "mysqli_connect();",
+            ],
+            correct: 2,
+            explain:
+              "session_start() wajib dipanggil di awal skrip PHP sebelum ada output HTML agar server bisa membaca atau menyimpan data $_SESSION.",
+          },
+          {
+            q: "3. Apa fungsi utama Primary Key (misalnya kolom id) pada sebuah tabel MySQL?",
+            options: [
+              "Mengubah warna tampilan tabel di HTML",
+              "Menjadi identitas unik pembeda setiap baris data agar tidak tertukar saat update/delete",
+              "Menghapus seluruh isi database secara otomatis",
+              "Menyimpan password pengguna dalam bentuk teks biasa",
+            ],
+            correct: 1,
+            explain:
+              "Primary Key memastikan setiap baris punya ID unik (misal 1, 2, 3) sehingga perintah UPDATE atau DELETE hanya mengenai data yang tepat.",
+          },
+          {
+            q: '4. Perintah SQL manakah yang benar untuk mengubah status tugas menjadi "Selesai" pada id = 3?',
+            options: [
+              'SELECT catatan SET status = "Selesai" WHERE id = 3;',
+              'INSERT INTO catatan (status) VALUES ("Selesai") WHERE id = 3;',
+              'UPDATE catatan SET status = "Selesai" WHERE id = 3;',
+              "DELETE FROM catatan WHERE id = 3;",
+            ],
+            correct: 2,
+            explain:
+              "UPDATE ... SET ... WHERE ... digunakan untuk memperbarui data yang sudah ada. Klausa WHERE wajib ada agar tidak semua baris ikut berubah!",
+          },
+        ];
+
+        const slides = [
+          {
+            title: "Sampul & Tujuan Belajar Pertemuan 2",
+            render: renderSlide1,
+          },
+          {
+            title: "Apersepsi: Keterbatasan Pertemuan 1",
+            render: renderSlide2,
+          },
+          { title: "Alur Form HTML ke PHP", render: renderSlide3 },
+          { title: "Simulasi: $_GET vs $_POST", render: renderSlide4 },
+          { title: "Validasi & Keamanan Input Dasar", render: renderSlide5 },
+          { title: "Mengapa Butuh Session?", render: renderSlide6 },
+          { title: "Simulasi: Session Login & Proteksi", render: renderSlide7 },
+          { title: "Mengenal Basis Data (MySQL)", render: renderSlide8 },
+          { title: "Primary Key & Foreign Key", render: renderSlide9 },
+          { title: "Tipe Data MySQL Wajib UKK", render: renderSlide10 },
+          { title: "4 Perintah SQL Inti (CRUD)", render: renderSlide11 },
+          { title: "Playground Query SQL Interaktif", render: renderSlide12 },
+          { title: "Relasi Tabel & Konsep JOIN", render: renderSlide13 },
+          { title: "Koneksi PHP ke MySQL (mysqli)", render: renderSlide14 },
+          { title: "Mini-Project: Catatan CRUD + SQL", render: renderSlide15 },
+          { title: "Refleksi & Kuis Pemahaman", render: renderSlide16 },
+        ];
+
+        function escapeHtml(str) {
+          return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;");
+        }
+
+        // 1. Sampul
+        function renderSlide1() {
+          return `
+          <div class="space-y-8">
+            <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-xs font-semibold">
+              <span>PERTEMUAN 2 • PERSIAPAN UKK RPL / PPLG</span>
+            </div>
+
+            <div class="space-y-4">
+              <h1 class="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-white leading-tight">
+                Form Handling, Session, &amp;<br />
+                <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-indigo-400 to-emerald-300">Basis Data MySQL Dasar</span>
+              </h1>
+              <p class="text-slate-300 text-lg sm:text-xl max-w-3xl leading-relaxed">
+                Mengubah web agar bisa <strong>menerima input dari pengguna</strong>, mengingat status login dengan <strong>Session</strong>, dan menyimpan data secara permanen ke <strong>MySQL</strong>.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 pt-4 border-t border-slate-800/80">
+              <div>
+                <p class="text-xs font-bold text-cyan-400 uppercase tracking-wider">Tujuan 1</p>
+                <p class="text-sm sm:text-base text-slate-200 mt-1">Menangkap &amp; memvalidasi input form HTML dengan <code class="text-cyan-300">$_GET</code> dan <code class="text-cyan-300">$_POST</code>.</p>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-indigo-400 uppercase tracking-wider">Tujuan 2</p>
+                <p class="text-sm sm:text-base text-slate-200 mt-1">Memahami cara kerja <code class="text-indigo-300">$_SESSION</code> untuk simulasi login &amp; hak akses.</p>
+              </div>
+              <div>
+                <p class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Tujuan 3</p>
+                <p class="text-sm sm:text-base text-slate-200 mt-1">Merancang tabel MySQL, relasi kunci, dan operasi CRUD dasar.</p>
+              </div>
+            </div>
+          </div>
+        `;
+        }
+
+        // 2. Apersepsi
+        function renderSlide2() {
+          return `
+          <div class="space-y-8">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest text-cyan-400">Apersepsi • Jembatan dari Pertemuan 1</p>
+              <h2 class="text-3xl sm:text-4xl font-bold text-white mt-2">Mengapa Array di Pertemuan 1 Belum Cukup?</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div class="p-6 rounded-2xl bg-slate-900/80 border-l-4 border-emerald-400 space-y-2">
+                <p class="text-xs font-bold uppercase text-emerald-400">Yang Sudah Bisa (Pertemuan 1)</p>
+                <h3 class="text-xl font-bold text-white">Tampilkan Array</h3>
+                <p class="text-sm text-slate-300 leading-relaxed">Kita sudah bisa menampilkan daftar nilai siswa dari array PHP ke tabel HTML dengan <code class="text-cyan-300">foreach</code>.</p>
+              </div>
+
+              <div class="p-6 rounded-2xl bg-slate-900/80 border-l-4 border-rose-400 space-y-2">
+                <p class="text-xs font-bold uppercase text-rose-400">Masalah Nyata</p>
+                <h3 class="text-xl font-bold text-white">Data Hilang Saat Refresh</h3>
+                <p class="text-sm text-slate-300 leading-relaxed">Kalau guru ingin menambah siswa lewat web (bukan edit kode PHP manual), datanya belum bisa disimpan permanen!</p>
+              </div>
+
+              <div class="p-6 rounded-2xl bg-indigo-950/50 border-l-4 border-indigo-400 space-y-2">
+                <p class="text-xs font-bold uppercase text-indigo-300">Solusi Pertemuan 2</p>
+                <h3 class="text-xl font-bold text-white">Form + Session + DB</h3>
+                <p class="text-sm text-slate-200 leading-relaxed">Pengguna mengetik di <strong>Form HTML</strong> → PHP menangkap &amp; mengecek <strong>Session</strong> → Data disimpan aman ke <strong>MySQL</strong>.</p>
+              </div>
+            </div>
+          </div>
+        `;
+        }
+
+        // 3. Alur Form HTML ke PHP
+        function renderSlide3() {
+          return `
+          <div class="space-y-6">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest text-cyan-400">Komunikasi Browser → Server</p>
+              <h2 class="text-3xl sm:text-4xl font-bold text-white mt-1">3 Atribut Kunci pada Tag <code class="text-indigo-400">&lt;form&gt;</code></h2>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+                <span class="text-xs font-mono text-slate-400">form_nilai.php</span>
+                <pre class="text-sm text-cyan-200 overflow-x-auto leading-relaxed mt-2"><code>${escapeHtml('<form action="proses.php" method="POST">\n  <input type="text" name="nama_siswa">\n  <input type="number" name="nilai">\n  <button type="submit">Simpan</button>\n</form>')}</code></pre>
+              </div>
+
+              <div class="space-y-4">
+                <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <p class="text-sm font-bold text-cyan-300">1. action="proses.php"</p>
+                  <p class="text-sm text-slate-300 mt-1">Alamat file PHP tujuan yang akan menerima dan memproses data form.</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <p class="text-sm font-bold text-indigo-300">2. method="GET" atau "POST"</p>
+                  <p class="text-sm text-slate-300 mt-1">Cara pengiriman paket data ke server (lewat URL atau lewat body request).</p>
+                </div>
+                <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <p class="text-sm font-bold text-emerald-300">3. name="nama_siswa"</p>
+                  <p class="text-sm text-slate-300 mt-1">Kunci (key) yang wajib ada agar PHP bisa memanggilnya via <code class="text-emerald-300">$_POST["nama_siswa"]</code>.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        }
+
+        // 4. Simulasi $_GET vs $_POST
+        function renderSlide4() {
+          const isGet = formMethod === "GET";
+          const urlPreview = isGet
+            ? `http://localhost/proses.php?nama=${encodeURIComponent(formInputNama)}&nilai=${encodeURIComponent(formInputNilai)}`
+            : `http://localhost/proses.php`;
+
+          return `
+          <div class="space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-widest text-cyan-400">Simulasi Interaktif</p>
+                <h2 class="text-3xl sm:text-4xl font-bold text-white mt-1"><code class="text-indigo-400">$_GET</code> vs <code class="text-emerald-400">$_POST</code></h2>
+              </div>
+              <div class="inline-flex p-1 rounded-xl bg-slate-900 border border-slate-800 self-start">
+                <button type="button" data-method="GET" class="px-4 py-2 rounded-lg text-sm font-semibold transition ${isGet ? "bg-amber-500 text-slate-950" : "text-slate-300"}">Method GET</button>
+                <button type="button" data-method="POST" class="px-4 py-2 rounded-lg text-sm font-semibold transition ${!isGet ? "bg-emerald-600 text-white" : "text-slate-300"}">Method POST</button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+                <p class="text-xs font-bold uppercase text-slate-400">Coba Ubah Input Form:</p>
+                <div class="space-y-3">
+                  <div>
+                    <label for="sim-nama" class="block text-xs text-slate-400 mb-1">Input name="nama"</label>
+                    <input id="sim-nama" type="text" value="${escapeHtml(formInputNama)}" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  </div>
+                  <div>
+                    <label for="sim-nilai" class="block text-xs text-slate-400 mb-1">Input name="nilai"</label>
+                    <input id="sim-nilai" type="number" value="${escapeHtml(formInputNilai)}" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-5 space-y-4">
+                <div>
+                  <p class="text-xs font-bold uppercase text-slate-400 mb-1">Address Bar Browser:</p>
+                  <div class="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono ${isGet ? "text-amber-300" : "text-emerald-300"} break-all">
+                    ${escapeHtml(urlPreview)}
+                  </div>
+                </div>
+                <div>
+                  <p class="text-xs font-bold uppercase text-slate-400 mb-1">Cara Menangkap di PHP:</p>
+                  <pre class="bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-cyan-200 overflow-x-auto"><code>${
+                    isGet
+                      ? escapeHtml(
+                          `$nama  = $_GET["nama"];   // "${formInputNama}"\n$nilai = $_GET["nilai"];  // "${formInputNilai}"`,
+                        )
+                      : escapeHtml(
+                          `$nama  = $_POST["nama"];  // "${formInputNama}"\n$nilai = $_POST["nilai"]; // "${formInputNilai}"`,
+                        )
+                  }</code></pre>
+                </div>
+                <p class="text-xs ${isGet ? "text-amber-300" : "text-emerald-300"}">
+                  ${
+                    isGet
+                      ? "📌 GET cocok untuk pencarian/filter karena parameter terlihat di URL."
+                      : "🔒 POST wajib untuk login, upload file, dan simpan data ke database karena data tersembunyi di body request."
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        `;
+        }
+
+        // 5. Validasi & Keamanan Input
+        function renderSlide5() {
+          return `
+          <div class="space-y-6">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest text-cyan-400">Kebiasaan Coding Aman</p>
+              <h2 class="text-3xl sm:text-4xl font-bold text-white mt-1">Validasi &amp; Sanitasi Input Form</h2>
+              <p class="text-base text-slate-300 mt-1">Jangan pernah langsung percaya pada input pengguna sebelum diperiksa oleh PHP.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2.5">
+                <span class="text-xs font-bold text-cyan-400 uppercase">1. Cek Keberadaan</span>
+                <code class="block text-sm font-mono text-white bg-slate-950 p-2.5 rounded-lg">isset($_POST["nama"])</code>
+                <p class="text-sm text-slate-300">Mencegah error <em>Undefined array key</em> saat halaman pertama kali dibuka sebelum tombol Submit diklik.</p>
+              </div>
+
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2.5">
+                <span class="text-xs font-bold text-amber-400 uppercase">2. Cek Kosong</span>
+                <code class="block text-sm font-mono text-white bg-slate-950 p-2.5 rounded-lg">empty(trim($nama))</code>
+                <p class="text-sm text-slate-300">Memastikan siswa tidak hanya mengetik spasi kosong lalu menekan Simpan.</p>
+              </div>
+
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2.5">
+                <span class="text-xs font-bold text-emerald-400 uppercase">3. Anti-XSS</span>
+                <code class="block text-sm font-mono text-white bg-slate-950 p-2.5 rounded-lg">htmlspecialchars($nama)</code>
+                <p class="text-sm text-slate-300">Menetralkan tag HTML/JS berbahaya (seperti <code class="text-rose-300">&lt;script&gt;</code>) saat ditampilkan kembali ke layar.</p>
+              </div>
+            </div>
+          </div>
+        `;
+        }
+
+        // 6. Mengapa Butuh Session?
+        function renderSlide6() {
+          return `
+          <div class="space-y-7">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest text-cyan-400">State Management</p>
+              <h2 class="text-3xl sm:text-4xl font-bold text-white mt-1">Masalah HTTP Stateless &amp; Solusi <code class="text-indigo-400">Session</code></h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+              <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-3">
+                <p class="text-xs font-bold uppercase text-amber-400">Analogi Gelang Tiket Wahana</p>
+                <p class="text-base text-slate-200 leading-relaxed">
+                  Secara bawaan, HTTP bersifat <strong>pelupa (stateless)</strong>. Setelah kamu login di <code class="text-cyan-300">login.php</code> lalu pindah ke <code class="text-cyan-300">dashboard.php</code>, server langsung lupa siapa kamu!
+                </p>
+                <p class="text-base text-slate-200 leading-relaxed">
+                  <strong>Session</strong> ibarat <em>gelang tiket</em>: sekali kamu login, server memberimu tiket khusus sehingga halaman mana pun tahu kamu sudah terverifikasi.
+                </p>
+              </div>
+
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
+                <span class="text-xs font-mono text-slate-400">Sintaks Dasar Session</span>
+                <pre class="text-sm text-cyan-200 overflow-x-auto leading-relaxed"><code>${escapeHtml('<?php\nsession_start(); // Wajib di baris paling atas!\n\n// Menyimpan data login\n$_SESSION["username"] = "admin_rpl";\n\n// Menghapus saat logout\nsession_destroy();\n?>')}</code></pre>
+              </div>
+            </div>
+          </div>
+        `;
+        }
+
+        // 7. Simulasi Session Login & Proteksi Halaman
+        function renderSlide7() {
+          return `
+          <div class="space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-widest text-cyan-400">Simulasi Interaktif</p>
+                <h2 class="text-3xl sm:text-4xl font-bold text-white mt-1">Proteksi Halaman dengan <code class="text-indigo-400">$_SESSION</code></h2>
+              </div>
+              <button type="button" id="btn-toggle-session" class="px-5 py-2.5 rounded-xl text-sm font-semibold transition self-start ${sessionLoggedIn ? "bg-rose-600 hover:bg-rose-500 text-white" : "bg-emerald-600 hover:bg-emerald-500 text-white"}">
+                ${sessionLoggedIn ? "Logout (session_destroy)" : "Simulasi Login Admin →"}
+              </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-3">
+                <p class="text-xs font-bold uppercase text-slate-400">Isi Memori Server (<code class="text-cyan-300">$_SESSION</code>):</p>
+                <pre class="bg-slate-950 border border-slate-800 rounded-lg p-4 text-sm text-cyan-200"><code>${
+                  sessionLoggedIn
+                    ? escapeHtml(
+                        `Array (\n  [login] => true\n  [user]  => "${sessionUser}"\n)`,
+                      )
+                    : escapeHtml(`Array ( ) // Kosong: Belum ada yang login`)
+                }</code></pre>
+              </div>
+
+              <div class="rounded-xl p-6 border flex flex-col justify-between space-y-4 ${sessionLoggedIn ? "bg-emerald-950/30 border-emerald-500/50" : "bg-rose-950/30 border-rose-500/50"}">
+                <div>
+                  <span class="inline-block text-xs font-bold uppercase px-2.5 py-1 rounded-full ${sessionLoggedIn ? "bg-emerald-500/20 text-emerald-300" : "bg-rose-500/20 text-rose-300"}">
+                    Akses ke dashboard.php
+                  </span>
+                  <h3 class="text-2xl font-bold text-white mt-3">
+                    ${sessionLoggedIn ? `Selamat Datang, ${sessionUser}!` : "Akses Ditolak (Redirect ke login.php)"}
+                  </h3>
+                  <p class="text-sm text-slate-300 mt-1">
+                    ${
+                      sessionLoggedIn
+                        ? 'Karena isset($_SESSION["login"]) bernilai true, halaman dashboard boleh ditampilkan.'
+                        : 'Pengecekan if (!isset($_SESSION["login"])) langsung melempar pengunjung keluar.'
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        }
+
+        // 8. Mengenal Basis Data MySQL
+        function renderSlide8() {
+          return `
+          <div class="space-y-7">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest text-emerald-400">Penyimpanan Permanen</p>
+              <h2 class="text-3xl sm:text-4xl font-bold text-white mt-1">Mengenal Basis Data Relasional (MySQL)</h2>
+              <p class="text-base text-slate-300 mt-1">Session hilang saat browser ditutup. Untuk menyimpan data bertahun-tahun (seperti nilai UKK), kita butuh <strong>MySQL</strong>.</p>
+            </div>
+
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2">
+                <p class="text-xs font-bold text-indigo-400 uppercase">1. Database</p>
+                <h3 class="text-lg font-bold text-white">Lemari Arsip</h3>
+                <p class="text-sm text-slate-300">Wadah besar satu proyek aplikasi (contoh: <code class="text-cyan-300">db_sekolah</code>).</p>
+              </div>
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2">
+                <p class="text-xs font-bold text-cyan-400 uppercase">2. Tabel (Table)</p>
+                <h3 class="text-lg font-bold text-white">Map Kategori</h3>
+                <p class="text-sm text-slate-300">Kelompok data sejenis (contoh tabel: <code class="text-cyan-300">siswa</code>, <code class="text-cyan-300">nilai</code>).</p>
+              </div>
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2">
+                <p class="text-xs font-bold text-emerald-400 uppercase">3. Kolom (Field)</p>
+                <h3 class="text-lg font-bold text-white">Judul Atribut</h3>
+                <p class="text-sm text-slate-300">Jenis informasi yang disimpan (<code class="text-cyan-300">id</code>, <code class="text-cyan-300">nama</code>, <code class="text-cyan-300">kelas</code>).</p>
+              </div>
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2">
+                <p class="text-xs font-bold text-amber-400 uppercase">4. Baris (Record)</p>
+                <h3 class="text-lg font-bold text-white">Isi Data</h3>
+                <p class="text-sm text-slate-300">Satu kesatuan data milik 1 orang siswa.</p>
+              </div>
+            </div>
+          </div>
+        `;
+        }
+
+        // 9. Primary Key & Foreign Key
+        function renderSlide9() {
+          return `
+          <div class="space-y-6">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest text-cyan-400">Konsep Relasi Tabel</p>
+              <h2 class="text-3xl sm:text-4xl font-bold text-white mt-1">Primary Key vs Foreign Key</h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div class="bg-slate-900 border border-indigo-500/40 rounded-xl p-6 space-y-3">
+                <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-indigo-500/20 text-indigo-300">Primary Key (PK)</span>
+                <h3 class="text-xl font-bold text-white">Identitas Unik Utama</h3>
+                <p class="text-sm text-slate-300">Seperti <strong>NIK / NISN</strong>. Tidak boleh ada dua baris dengan nilai Primary Key yang sama.</p>
+                <div class="bg-slate-950 rounded-lg p-3 text-xs font-mono text-cyan-200">
+                  Tabel kelas: [ <strong class="text-indigo-400">id=1</strong>, nama="XII RPL 1" ]
+                </div>
+              </div>
+
+              <div class="bg-slate-900 border border-emerald-500/40 rounded-xl p-6 space-y-3">
+                <span class="text-xs font-bold uppercase px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300">Foreign Key (FK)</span>
+                <h3 class="text-xl font-bold text-white">Kunci Tamu Penghubung</h3>
+                <p class="text-sm text-slate-300">Kolom yang meminjam ID dari tabel lain agar dua tabel saling terhubung.</p>
+                <div class="bg-slate-950 rounded-lg p-3 text-xs font-mono text-cyan-200">
+                  Tabel siswa: [ id=10, nama="Andi", <strong class="text-emerald-400">kelas_id=1</strong> ]
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+        }
+
+        // 10. Tipe Data MySQL Wajib UKK
+        function renderSlide10() {
+          const mysqlTypes = [
+            {
+              t: "INT",
+              use: "Angka bulat (id, stok, harga, nilai)",
+              ex: "1, 85, 25000",
+            },
+            {
+              t: "VARCHAR(255)",
+              use: "Teks pendek (nama, email, username, foto)",
+              ex: '"Andi Pratama"',
+            },
+            {
+              t: "TEXT",
+              use: "Teks panjang (isi pengaduan, deskripsi)",
+              ex: "Paragraf panjang",
+            },
+            {
+              t: "DATE / TIMESTAMP",
+              use: "Tanggal transaksi atau waktu otomatis",
+              ex: "2026-11-16",
+            },
+            {
+              t: "ENUM",
+              use: "Pilihan terbatas yang pasti",
+              ex: "'admin', 'siswa'",
+            },
+          ];
+
+          return `
+          <div class="space-y-6">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest text-cyan-400">Desain Skema Tabel</p>
+              <h2 class="text-3xl sm:text-4xl font-bold text-white mt-1">5 Tipe Data MySQL yang Paling Sering Dipakai di UKK</h2>
+            </div>
+
+            <div class="overflow-x-auto bg-slate-900 border border-slate-800 rounded-xl">
+              <table class="w-full text-left text-sm border-collapse">
+                <thead class="bg-slate-950 text-slate-300 border-b border-slate-800">
+                  <tr>
+                    <th class="px-5 py-3">Tipe Data</th>
+                    <th class="px-5 py-3">Kegunaan Umum</th>
+                    <th class="px-5 py-3">Contoh Isi</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-800">
+                  ${mysqlTypes
+                    .map(
+                      (item) => `
+                    <tr>
+                      <td class="px-5 py-3 font-mono font-bold text-cyan-300">${item.t}</td>
+                      <td class="px-5 py-3 text-slate-200">${item.use}</td>
+                      <td class="px-5 py-3 font-mono text-xs text-emerald-300">${item.ex}</td>
+                    </tr>
+                  `,
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+        }
+
+        // 11. 4 Perintah SQL Inti
+        function renderSlide11() {
+          return `
+          <div class="space-y-6">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest text-cyan-400">Bahasa Query Dasar</p>
+              <h2 class="text-3xl sm:text-4xl font-bold text-white mt-1">4 Perintah SQL Inti (CRUD)</h2>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2">
+                <span class="text-xs font-bold uppercase text-emerald-400">C — Create (Tambah Data)</span>
+                <pre class="text-xs sm:text-sm text-cyan-200 bg-slate-950 p-3 rounded-lg overflow-x-auto"><code>INSERT INTO siswa (nama, nilai) VALUES ('Andi', 90);</code></pre>
+              </div>
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2">
+                <span class="text-xs font-bold uppercase text-sky-400">R — Read (Baca Data)</span>
+                <pre class="text-xs sm:text-sm text-cyan-200 bg-slate-950 p-3 rounded-lg overflow-x-auto"><code>SELECT * FROM siswa WHERE nilai &gt;= 75;</code></pre>
+              </div>
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2">
+                <span class="text-xs font-bold uppercase text-amber-400">U — Update (Ubah Data)</span>
+                <pre class="text-xs sm:text-sm text-cyan-200 bg-slate-950 p-3 rounded-lg overflow-x-auto"><code>UPDATE siswa SET nilai = 95 WHERE id = 1;</code></pre>
+              </div>
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2">
+                <span class="text-xs font-bold uppercase text-rose-400">D — Delete (Hapus Data)</span>
+                <pre class="text-xs sm:text-sm text-cyan-200 bg-slate-950 p-3 rounded-lg overflow-x-auto"><code>DELETE FROM siswa WHERE id = 1;</code></pre>
+              </div>
+            </div>
+          </div>
+        `;
+        }
+
+        // 12. Playground Query SQL Interaktif
+        function renderSlide12() {
+          const filtered = todoRows.filter((r) => {
+            if (sqlFilter === "selesai") return r.status === "Selesai";
+            if (sqlFilter === "belum") return r.status === "Belum";
+            return true;
+          });
+
+          return `
+          <div class="space-y-5">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest text-cyan-400">Simulasi Query Langsung</p>
+              <h2 class="text-3xl font-bold text-white mt-1">Uji Filter <code class="text-indigo-400">SELECT ... WHERE</code></h2>
+              <p class="text-sm text-slate-300 mt-1">Klik salah satu tombol query di bawah untuk melihat bagaimana MySQL menyaring baris tabel.</p>
+            </div>
+
+            <div class="flex flex-wrap gap-2">
+              <button type="button" data-sql="all" class="px-3.5 py-2 rounded-lg text-xs font-mono border transition ${sqlFilter === "all" ? "bg-indigo-600 border-indigo-500 text-white" : "bg-slate-900 border-slate-800 text-slate-300"}">
+                SELECT * FROM catatan;
+              </button>
+              <button type="button" data-sql="selesai" class="px-3.5 py-2 rounded-lg text-xs font-mono border transition ${sqlFilter === "selesai" ? "bg-emerald-600 border-emerald-500 text-white" : "bg-slate-900 border-slate-800 text-slate-300"}">
+                SELECT * FROM catatan WHERE status = 'Selesai';
+              </button>
+              <button type="button" data-sql="belum" class="px-3.5 py-2 rounded-lg text-xs font-mono border transition ${sqlFilter === "belum" ? "bg-amber-500 border-amber-400 text-slate-950 font-semibold" : "bg-slate-900 border-slate-800 text-slate-300"}">
+                SELECT * FROM catatan WHERE status = 'Belum';
+              </button>
+            </div>
+
+            <div class="overflow-x-auto bg-white text-slate-900 rounded-xl shadow">
+              <table class="w-full text-left text-sm border-collapse">
+                <thead class="bg-slate-100 border-b border-slate-200">
+                  <tr>
+                    <th class="px-4 py-2.5">id (PK)</th>
+                    <th class="px-4 py-2.5">tugas</th>
+                    <th class="px-4 py-2.5">status</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                  ${filtered
+                    .map(
+                      (r) => `
+                    <tr>
+                      <td class="px-4 py-2.5 font-mono text-slate-500">${r.id}</td>
+                      <td class="px-4 py-2.5 font-medium">${escapeHtml(r.tugas)}</td>
+                      <td class="px-4 py-2.5">
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold ${r.status === "Selesai" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}">${r.status}</span>
+                      </td>
+                    </tr>
+                  `,
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+        }
+
+        // 13. Relasi Tabel & JOIN Dasar
+        function renderSlide13() {
+          return `
+          <div class="space-y-6">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest text-emerald-400">Bekal Penting Menuju Laravel Eloquent</p>
+              <h2 class="text-3xl sm:text-4xl font-bold text-white mt-1">Menggabungkan 2 Tabel dengan <code class="text-indigo-400">JOIN</code></h2>
+            </div>
+
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+              <pre class="text-xs sm:text-sm text-cyan-200 overflow-x-auto leading-relaxed"><code>${escapeHtml("SELECT produk.nama_produk, kategori.nama_kategori\nFROM produk\nINNER JOIN kategori ON produk.kategori_id = kategori.id;")}</code></pre>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-5">
+                <p class="text-xs font-bold uppercase text-indigo-400 mb-2">Mengapa Dipisah Jadi 2 Tabel?</p>
+                <p class="text-sm text-slate-300 leading-relaxed">Jika nama kategori "Alat Tulis" berubah menjadi "ATK", kita cukup mengubah 1 baris di tabel <code class="text-cyan-300">kategori</code>, tanpa perlu mengedit ribuan baris produk!</p>
+              </div>
+              <div class="bg-slate-900/70 border border-slate-800 rounded-xl p-5">
+                <p class="text-xs font-bold uppercase text-emerald-400 mb-2">Nanti di Laravel...</p>
+                <p class="text-sm text-slate-300 leading-relaxed">Query <code class="text-cyan-300">INNER JOIN</code> yang panjang ini akan menjadi sangat ringkas dengan Eloquent: <code class="text-emerald-300">$produk-&gt;kategori-&gt;nama_kategori</code>.</p>
+              </div>
+            </div>
+          </div>
+        `;
+        }
+
+        // 14. Koneksi PHP ke MySQL
+        function renderSlide14() {
+          return `
+          <div class="space-y-6">
+            <div>
+              <p class="text-xs font-bold uppercase tracking-widest text-cyan-400">Menjembatani PHP &amp; Database</p>
+              <h2 class="text-3xl sm:text-4xl font-bold text-white mt-1">Koneksi PHP Native ke MySQL (<code class="text-indigo-400">mysqli</code>)</h2>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
+              <div class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+                <span class="text-xs font-mono text-slate-400">koneksi.php</span>
+                <pre class="text-xs sm:text-sm text-cyan-200 overflow-x-auto leading-relaxed mt-2"><code>${escapeHtml('<?php\n$koneksi = mysqli_connect("localhost", "root", "", "db_ukk");\n\nif (!$koneksi) {\n  die("Koneksi gagal: " . mysqli_connect_error());\n}\n?>')}</code></pre>
+              </div>
+
+              <div class="space-y-3 text-sm text-slate-300">
+                <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800">
+                  <strong class="text-white">4 Parameter Wajib:</strong>
+                  <ul class="mt-2 space-y-1 font-mono text-xs text-cyan-300">
+                    <li>1. "localhost" → Alamat server database</li>
+                    <li>2. "root"      → Username default Laragon/XAMPP</li>
+                    <li>3. ""          → Password default (kosong)</li>
+                    <li>4. "db_ukk"    → Nama database yang dibuat</li>
+                  </ul>
+                </div>
+                <p class="text-xs text-amber-300">💡 Di Laravel nanti, ke-4 pengaturan ini cukup ditulis rapi di dalam 1 file bernama <code class="text-cyan-300">.env</code>.</p>
+              </div>
+            </div>
+          </div>
+        `;
+        }
+
+        // 15. Mini-Project Minggu 2
+        function renderSlide15() {
+          return `
+          <div class="space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-2">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-widest text-emerald-400">Mini-Project Pertemuan 2</p>
+                <h2 class="text-3xl font-bold text-white mt-1">Aplikasi Catatan Belajar (CRUD + Simulasi SQL)</h2>
+              </div>
+              <span class="text-xs font-mono text-cyan-300 bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-lg truncate max-w-full">
+                SQL: ${escapeHtml(lastSqlQuery)}
+              </span>
+            </div>
+
+            <form id="todo-form" class="flex flex-col sm:flex-row gap-2.5 bg-slate-900 border border-slate-800 p-3.5 rounded-xl">
+              <input id="todo-input" type="text" placeholder="Tulis tugas baru (mis. Latihan SQL JOIN)..." required class="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+              <button type="submit" class="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg px-5 py-2 text-sm transition">+ Simpan (INSERT)</button>
+            </form>
+
+            <div class="overflow-x-auto bg-white text-slate-900 rounded-xl shadow">
+              <table class="w-full text-left text-sm border-collapse">
+                <thead class="bg-slate-100 border-b border-slate-200">
+                  <tr>
+                    <th class="px-4 py-2.5">ID</th>
+                    <th class="px-4 py-2.5">Tugas</th>
+                    <th class="px-4 py-2.5">Status</th>
+                    <th class="px-4 py-2.5 text-right">Aksi (UPDATE / DELETE)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200">
+                  ${todoRows
+                    .map(
+                      (r) => `
+                    <tr>
+                      <td class="px-4 py-2.5 font-mono text-slate-500">${r.id}</td>
+                      <td class="px-4 py-2.5 font-semibold">${escapeHtml(r.tugas)}</td>
+                      <td class="px-4 py-2.5">
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-semibold ${r.status === "Selesai" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-800"}">${r.status}</span>
+                      </td>
+                      <td class="px-4 py-2.5 text-right space-x-1.5">
+                        <button type="button" data-todo-toggle="${r.id}" class="px-2.5 py-1 rounded bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-xs font-semibold transition">Ubah Status</button>
+                        <button type="button" data-todo-del="${r.id}" class="px-2.5 py-1 rounded bg-rose-100 hover:bg-rose-200 text-rose-700 text-xs font-semibold transition">Hapus</button>
+                      </td>
+                    </tr>
+                  `,
+                    )
+                    .join("")}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        `;
+        }
+
+        // 16. Kuis Pemahaman
+        function renderSlide16() {
+          const answeredCount = Object.keys(quizAnswers).length;
+          let correctCount = 0;
+          quizQuestions.forEach((q, i) => {
+            if (quizAnswers[i] === q.correct) correctCount++;
+          });
+
+          return `
+          <div class="space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <p class="text-xs font-bold uppercase tracking-widest text-cyan-400">Evaluasi &amp; Refleksi</p>
+                <h2 class="text-3xl font-bold text-white mt-1">Kuis Cepat Pertemuan 2</h2>
+              </div>
+              <div class="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-sm font-semibold text-indigo-300">
+                Skor: ${correctCount} / ${quizQuestions.length} (${answeredCount} terjawab)
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              ${quizQuestions
+                .map((item, qIdx) => {
+                  const chosen = quizAnswers[qIdx];
+                  const isAnswered = chosen !== undefined;
+                  return `
+                  <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-2.5">
+                    <p class="text-sm font-semibold text-white">${item.q}</p>
+                    <div class="space-y-1.5">
+                      ${item.options
+                        .map((opt, oIdx) => {
+                          let btnStyle =
+                            "bg-slate-950 border-slate-800 text-slate-300 hover:bg-slate-800";
+                          if (isAnswered) {
+                            if (oIdx === item.correct) {
+                              btnStyle =
+                                "bg-emerald-600/25 border-emerald-400 text-emerald-200 font-semibold";
+                            } else if (oIdx === chosen) {
+                              btnStyle =
+                                "bg-rose-600/25 border-rose-400 text-rose-200";
+                            } else {
+                              btnStyle =
+                                "bg-slate-950 border-slate-800 text-slate-500 opacity-50";
+                            }
+                          }
+                          return `
+                          <button type="button" data-quiz-q="${qIdx}" data-quiz-o="${oIdx}" class="w-full text-left text-xs p-2.5 rounded-lg border transition ${btnStyle}">
+                            ${escapeHtml(opt)}
+                          </button>
+                        `;
+                        })
+                        .join("")}
+                    </div>
+                    ${isAnswered ? `<p class="text-xs ${chosen === item.correct ? "text-emerald-300" : "text-amber-300"} pt-1">💡 ${item.explain}</p>` : ""}
+                  </div>
+                `;
+                })
+                .join("")}
+            </div>
+          </div>
+        `;
+        }
+
+        function render() {
+          const container = document.getElementById("slide-container");
+          const counter = document.getElementById("slide-counter");
+          const progress = document.getElementById("progress-bar");
+          const selector = document.getElementById("slide-selector");
+          const footerTitle = document.getElementById("footer-slide-title");
+          const btnPrev = document.getElementById("btn-prev");
+          const btnNext = document.getElementById("btn-next");
+
+          container.classList.remove("slide-enter");
+          void container.offsetWidth;
+          container.classList.add("slide-enter");
+
+          container.innerHTML = slides[currentSlide].render();
+          footerTitle.textContent = slides[currentSlide].title;
+          counter.textContent = `${currentSlide + 1} / ${slides.length}`;
+          progress.style.width = `${((currentSlide + 1) / slides.length) * 100}%`;
+          selector.value = String(currentSlide);
+
+          btnPrev.disabled = currentSlide === 0;
+          btnNext.disabled = currentSlide === slides.length - 1;
+
+          attachDynamicListeners();
+        }
+
+        function attachDynamicListeners() {
+          const container = document.getElementById("slide-container");
+
+          container.querySelectorAll("[data-method]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              formMethod = btn.getAttribute("data-method");
+              render();
+            });
+          });
+
+          const simNama = container.querySelector("#sim-nama");
+          if (simNama) {
+            simNama.addEventListener("input", (e) => {
+              formInputNama = e.target.value;
+              render();
+              const el = document.getElementById("sim-nama");
+              if (el) {
+                el.focus();
+                el.setSelectionRange(el.value.length, el.value.length);
+              }
+            });
+          }
+
+          const simNilai = container.querySelector("#sim-nilai");
+          if (simNilai) {
+            simNilai.addEventListener("input", (e) => {
+              formInputNilai = e.target.value;
+              render();
+              const el = document.getElementById("sim-nilai");
+              if (el) {
+                el.focus();
+                el.setSelectionRange(el.value.length, el.value.length);
+              }
+            });
+          }
+
+          const toggleSessionBtn = container.querySelector(
+            "#btn-toggle-session",
+          );
+          if (toggleSessionBtn) {
+            toggleSessionBtn.addEventListener("click", () => {
+              sessionLoggedIn = !sessionLoggedIn;
+              render();
+            });
+          }
+
+          container.querySelectorAll("[data-sql]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              sqlFilter = btn.getAttribute("data-sql");
+              render();
+            });
+          });
+
+          const todoForm = container.querySelector("#todo-form");
+          if (todoForm) {
+            todoForm.addEventListener("submit", (e) => {
+              e.preventDefault();
+              const val = document.getElementById("todo-input").value.trim();
+              if (val) {
+                todoRows.push({
+                  id: nextTodoId++,
+                  tugas: val,
+                  status: "Belum",
+                });
+                lastSqlQuery = `INSERT INTO catatan (tugas, status) VALUES ('${val}', 'Belum');`;
+                render();
+              }
+            });
+          }
+
+          container.querySelectorAll("[data-todo-toggle]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const id = parseInt(btn.getAttribute("data-todo-toggle"), 10);
+              const item = todoRows.find((r) => r.id === id);
+              if (item) {
+                item.status = item.status === "Selesai" ? "Belum" : "Selesai";
+                lastSqlQuery = `UPDATE catatan SET status = '${item.status}' WHERE id = ${id};`;
+                render();
+              }
+            });
+          });
+
+          container.querySelectorAll("[data-todo-del]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const id = parseInt(btn.getAttribute("data-todo-del"), 10);
+              todoRows = todoRows.filter((r) => r.id !== id);
+              lastSqlQuery = `DELETE FROM catatan WHERE id = ${id};`;
+              render();
+            });
+          });
+
+          container.querySelectorAll("[data-quiz-q]").forEach((btn) => {
+            btn.addEventListener("click", () => {
+              const q = parseInt(btn.getAttribute("data-quiz-q"), 10);
+              const o = parseInt(btn.getAttribute("data-quiz-o"), 10);
+              quizAnswers[q] = o;
+              render();
+            });
+          });
+        }
+
+        // Initialize selector & navigation
+        const selector = document.getElementById("slide-selector");
+        slides.forEach((s, idx) => {
+          const opt = document.createElement("option");
+          opt.value = String(idx);
+          opt.textContent = `${idx + 1}. ${s.title}`;
+          opt.className = "bg-slate-900 text-slate-100";
+          selector.appendChild(opt);
+        });
+
+        selector.addEventListener("change", (e) => {
+          currentSlide = parseInt(e.target.value, 10) || 0;
+          render();
+        });
+
+        document.getElementById("btn-prev").addEventListener("click", () => {
+          if (currentSlide > 0) {
+            currentSlide--;
+            render();
+          }
+        });
+
+        document.getElementById("btn-next").addEventListener("click", () => {
+          if (currentSlide < slides.length - 1) {
+            currentSlide++;
+            render();
+          }
+        });
+
+        function toggleFullscreen() {
+          try {
+            if (!document.fullscreenElement) {
+              document.documentElement.requestFullscreen();
+            } else {
+              document.exitFullscreen();
+            }
+          } catch (err) {
+            // Ignore if sandbox iframe restricts fullscreen
+          }
+        }
+
+        document
+          .getElementById("btn-fullscreen")
+          .addEventListener("click", toggleFullscreen);
+
+        document.addEventListener("keydown", (e) => {
+          if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT")
+            return;
+          if (e.key === "ArrowRight" && currentSlide < slides.length - 1) {
+            currentSlide++;
+            render();
+          } else if (e.key === "ArrowLeft" && currentSlide > 0) {
+            currentSlide--;
+            render();
+          } else if (e.key === "f" || e.key === "F") {
+            toggleFullscreen();
+          }
+        });
+
+        render();
+      })();
+    </script>
+  </body>
+</html>
